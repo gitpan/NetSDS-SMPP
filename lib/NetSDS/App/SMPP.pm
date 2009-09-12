@@ -49,7 +49,7 @@ use JSON;
 
 use base qw(NetSDS::App);
 
-use version; our $VERSION = "1.0";
+use version; our $VERSION = "1.200";
 
 # Default listen IP address and TCP port
 use constant DEFAULT_BIND_ADDR   => '127.0.0.1';
@@ -385,7 +385,9 @@ sub _process_out_queue {
 			# Looking for proper ESME
 			foreach my $hdl ( values %{ $this->handlers } ) {
 				if ( $hdl->{system_id} eq $mo->{client} ) {
-					$this->_deliver_sm( $hdl, $mo );    # send deliver_sm to ESME
+					if ( ( $hdl->{mode} eq 'transceiver' ) and ( $hdl->{mode} eq 'receiver' ) ) {
+						$this->_deliver_sm( $hdl, $mo );    # send deliver_sm to ESME
+					}
 				}
 			}
 		} else {

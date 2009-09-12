@@ -22,7 +22,7 @@ use strict;
 use warnings 'all';
 
 # force commit
-our $VERSION = "1.2";
+our $VERSION = "1.204";
 
 use Module::Build;
 
@@ -47,6 +47,7 @@ my $build = Module::Build->new(
 		'NetSDS'                => '1.000',
 		'NetSDS::Util::Convert' => '1.000',
 		'NetSDS::Queue'         => '0.030',
+		'Net::SMPP'             => '1.10',
 	},
 	script_files => [
 		'scripts/smppqproc',

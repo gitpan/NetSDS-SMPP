@@ -19,9 +19,10 @@ use strict;
 use warnings;
 
 SMPPQproc->run(
-	daemon   => 0,
-	verbose  => 1,
+	daemon   => 1,
+	verbose  => 0,
 	infinite => 1,
+	use_pidfile => 1,
 );
 
 1;
@@ -40,6 +41,8 @@ use IO::Socket::INET;
 use IPC::ShareLite;
 use JSON;
 use IO::Select;
+
+use Time::HiRes qw(usleep);
 
 use Data::Dumper;
 
@@ -64,11 +67,11 @@ sub main_loop {
 		$this->start();
 
 		# Process queue until restart needed
-		while ( !$this->{restart} and !$this->{to_finalize}) {
+		while ( !$this->{restart} and !$this->{to_finalize} ) {
 			$this->process();
 		}
 
-		warn "Fin!\n";
+		$this->speak("Going to restart");
 	}
 
 	$this->stop();
@@ -90,8 +93,7 @@ sub start {
 			Proto     => 'tcp',
 			Listen    => 5,
 		);
-	} else {
-	}
+	};
 
 	my $sock = $this->listener->accept();
 
@@ -111,6 +113,8 @@ sub start {
 	$this->mk_accessors('queue');
 	$this->queue($queue);
 
+	$this->{wait_keepalive} = 1000;
+
 } ## end sub start
 
 sub process {
@@ -119,8 +123,12 @@ sub process {
 
 	# Send marker (keepalive)
 	if ( $this->sock ) {
-		$this->speak("Send keepalive to SMPP server");
-		$this->sock->print("-MARK-\n");
+		$this->{wait_keepalive}--;
+		if ($this->{wait_keepalive} lt 1) {
+			$this->speak("Send keepalive to SMPP server");
+			$this->sock->print("-MARK-\n");
+			$this->{wait_keepalive} = 1000;
+		}
 	} else {
 		return undef;
 	}
@@ -137,7 +145,7 @@ sub process {
 	if ($shm_data) {
 		$shm_data = decode_json($shm_data);
 	} else {
-		sleep 1;
+		usleep(1000);
 		return 1;
 	}
 
@@ -148,10 +156,18 @@ sub process {
 			$this->sock->print( conv_str_base64( encode_json($data) ) . "\n" );
 		}
 	}
-	sleep 1;
+	usleep(1000);
 
 } ## end sub process
 
+sub stop {
+
+	my ($this) = @_;
+
+	$this->listener->close();
+	$this->listener(undef);
+
+}
 1;
 #===============================================================================
 
